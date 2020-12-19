@@ -17,6 +17,7 @@
 #include "Vector.h"
 #include "File.h"
 
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
@@ -304,6 +305,9 @@ namespace Ember {
 	public:
 		AudioChunk(const char* file_path);
 		void Play();
+		void Pause();
+		void Resume();
+		void Disable();
 		void Volume(unsigned int volume);
 		virtual ~AudioChunk();
 	private:
@@ -315,6 +319,9 @@ namespace Ember {
 	public:
 		AudioMusic(const char* file_path);
 		void Play();
+		void Disable();
+		void Pause();
+		void Resume();
 		void Volume(unsigned int volume);
 		virtual ~AudioMusic();
 	private:

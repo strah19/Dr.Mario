@@ -16,12 +16,17 @@ public:
 	DrMario() : Application("Dr.Mario", false, 768, 672), screen("MainGamePlay"), background("res/background.png", renderer), bottle("res/bottle.png", renderer),
 		main_theme_song("res/Dr Mario Fever.mp3"), p_texture("res/un_animated_pills.png", renderer), sprite_sheet_of_pills(p_texture, 3, 3),
 		p_animation("res/pill_animations.png", renderer), sprite_sheet_of_pill_animation(p_animation, 2, 3),
-		virus_animation("res/virus's.png", renderer), sprite_sheet_of_virus_animation(virus_animation, 3, 2), dr_mario_font(renderer, "res/drmarioFont.ttf", " ", 18, { 255, 255, 255, 255 }, 0, 0) {
+		virus_animation("res/virus's.png", renderer), sprite_sheet_of_virus_animation(virus_animation, 3, 2), dr_mario_font(renderer, "res/drmarioFont.ttf", " ", 18, { 255, 255, 255, 255 }, 0, 0),
+		bigv_texture("res/bigvirusanim.png", renderer), bigv_animation(bigv_texture, 3, 6), title_sound("res/title_music.mp3"), home_background("res/home.png", renderer),
+		dr_mario_title_font(renderer, "res/drmarioFont.ttf", " ", 28, { 255, 255, 255, 255 }, 0, 0), mario_title("res/title_mario_anim.png", renderer), mario_title_sheet(mario_title, 1, 2) {
 		screen.AddLayer("HomeScreen");
 		screen.AddLayer("SettingsScreen");
 		screen.AddLayer("QuitScreen");
 		screen.AddLayer("Pause");
-		screen.SetCurrentLayer("MainGamePlay");
+		screen.SetCurrentLayer("HomeScreen");
+
+		title_sound.Play();
+		title_sound.Volume(50);
 
 		srand(time(NULL));
 
@@ -37,7 +42,7 @@ public:
 					virus.back().f = &pill_grid[i][j];
 				//	std::cout << *virus.back().f << std::endl;
 				}
-				
+				 
 			}
 		}
 
@@ -68,7 +73,7 @@ public:
 	void OnUserUpdate() {
 		window->Update();
 
-		renderer->Clear({ 200, 200, 200, 255 });
+		renderer->Clear({ 0, 0, 0, 255 });
 
 		UpdateScreens();
 
@@ -83,11 +88,45 @@ public:
 	}
 
 	void HomeScreen() {
+		home_background.Draw(Ember::Rect(0, 0, window->Properties()->width, window->Properties()->height));
 
+		Ember::Button start_button(events, Ember::Rect(75 * SCALE, 154 * SCALE, 375, 38));
+		if (start_button.Hover()) {
+			dr_mario_title_font.ChangeFont("1 PLAYER GAME", { 200, 200, 200, 255 });
+			dr_mario_title_font.SetPosition(75 * SCALE, 154 * SCALE);
+			dr_mario_title_font.Render();
+		}
+		else {
+			dr_mario_title_font.ChangeFont("1 PLAYER GAME", { 255, 255, 255, 255 });
+			dr_mario_title_font.SetPosition(75 * SCALE, 154 * SCALE);
+			dr_mario_title_font.Render();
+		}
+		if (start_button.Click(Ember::ButtonIds::LeftMouseButton)) {
+			screen.SetCurrentLayer("MainGamePlay");
+			title_sound.Disable();
+			main_theme_song.Play();
+			main_theme_song.Volume(40);
+		}
+
+		BlueVirusAnim({ 185, 170 });
+
+		if (SDL_GetTicks() - mariotimer >= pillt) {
+			mariotimer = SDL_GetTicks();
+			if (current_mario_ == 0)
+				current_mario_ = 1;
+			else if (current_mario_ == 1)
+				current_mario_ = 0;
+		}
+		mario_title_sheet.SelectSprite(current_mario_, 0);
+		mario_title.Draw(Ember::Rect(35 * SCALE, 160 * SCALE, 36 * SCALE, 38 * SCALE), mario_title_sheet.ReturnSourceRect());
 	}
 
 	void Pause() {
-
+		dr_mario_font.ChangeFont("Paused", { 255, 255, 255, 255 });
+		int w = 1, h = 1;
+		dr_mario_font.GetSize(&w, &h, "Paused");
+		dr_mario_font.SetPosition(window->Properties()->width / 2 - (w / 2), window->Properties()->height / 2 - (h / 2));
+		dr_mario_font.Render();
 	}
 
 	void Quit() {
@@ -105,7 +144,7 @@ public:
 			if (pills.back().position.y + (pills.back().position.h * 2) > inner_bottle.y + (grid_size * grid_rows))
 				NextPill();
 		}
-		else {
+		if (pills.back().angle == 270.0f || pills.back().angle == 90.0f) {
 			if (pill_grid[current_grid_spot.x][current_grid_spot.y + 2] != -1) {
 				NextPill();
 			}
@@ -188,8 +227,9 @@ public:
 		Left, Right, Up, Down
 	};
 
-	void ConfigWithEach() {
+	bool ConfigWithEach() {
 		PrintGrid();
+		bool no_four_in_row = true;
 		if (pills.back().angle == 0.0f || pills.back().angle == 180.0f) {
 			int left = InARow(current_grid_spot, pill_grid[current_grid_spot.x][current_grid_spot.y], 4, Direction::Left, 0, 8, 0, 16);
 			int right = InARow({ current_grid_spot.x + 1, current_grid_spot.y }, pill_grid[current_grid_spot.x + 1][current_grid_spot.y], 4, Direction::Right, 0, 8, 0, 16);
@@ -202,6 +242,7 @@ public:
 				if (FinalCheck(left + right)) {
 					for (int i = 0; i < left + right; i++) {
 						pill_grid[current_grid_spot.x - left + i + 1][current_grid_spot.y] = -1; 
+						no_four_in_row = false;
 					}
 				}
 			}
@@ -209,11 +250,13 @@ public:
 				if (FinalCheck(left)) {
 					for (int i = 0; i < left; i++) {
 						pill_grid[current_grid_spot.x - left + i + 1][current_grid_spot.y] = -1;
+						no_four_in_row = false;
 					}
 				}
 				if(FinalCheck(right)) {
 					for (int i = 0; i < right; i++) {
 						pill_grid[current_grid_spot.x + i + 1][current_grid_spot.y] = -1;
+						no_four_in_row = false;
 					}
 				}
 			}
@@ -221,12 +264,14 @@ public:
 			if (FinalCheck(left_c + left_up - 1)) {
 				for (int i = 0; i < left_c + left_up; i++) {
 					pill_grid[current_grid_spot.x][current_grid_spot.y - left_up + i] = -1;
+					no_four_in_row = false;
 				}
 			}
 
 			if (FinalCheck(right_c + right_up - 1)) {
 				for (int i = 0; i < right_c + right_up; i++) {
 					pill_grid[current_grid_spot.x + 1][current_grid_spot.y - right_up + i] = -1;
+					no_four_in_row = false;
 				}
 			}
 		}
@@ -241,11 +286,13 @@ public:
 			if (FinalCheck(left_bot + right_bot - 1)) {
 				for (int i = 0; i < left_bot + right_bot; i++) {
 					pill_grid[current_grid_spot.x - left_bot + i][current_grid_spot.y + 1] = -1;
+					no_four_in_row = false;
 				}
 			}
 			if (FinalCheck(left_top + right_top - 1)) {
 				for (int i = 0; i < left_top + right_top; i++) {
 					pill_grid[current_grid_spot.x - left_top + i][current_grid_spot.y] = -1;
+					no_four_in_row = false;
 				}
 			}
 
@@ -253,6 +300,7 @@ public:
 				if (FinalCheck(up + down)) {
 					for (int i = 0; i < up + down; i++) {
 						pill_grid[current_grid_spot.x][current_grid_spot.y - up + i + 1] = -1;
+						no_four_in_row = false;
 					}
 				}
 			if (pill_grid[current_grid_spot.x][current_grid_spot.y] != pill_grid[current_grid_spot.x][current_grid_spot.y + 1]) {
@@ -260,15 +308,19 @@ public:
 				if (FinalCheck(up)) {
 					for (int i = 0; i < up; i++) {
 						pill_grid[current_grid_spot.x][current_grid_spot.y - i] = -1;
+						no_four_in_row = false;
 					}
 				}
 				if (FinalCheck(down)) {
 					for (int i = 0; i <= down; i++) {
 						pill_grid[current_grid_spot.x][current_grid_spot.y + i + 1] = -1;
+						no_four_in_row = false;
 					}
 				}
 			}
 		}
+
+		return no_four_in_row;
 	}
 
 	bool FinalCheck(int i) {
@@ -330,72 +382,103 @@ public:
 			if (pill_ready) {
 				pills.back().position.y += grid_size;
 			}
-
+			
 			if (updating_all_pills_new_pos) {
 				int s = 0;
 				for (int i = 0; i < pills.size() - 1; i++) {
-					//redo with better awarness of angles and half pills
-					if (pills[i].cut == LEFTSIDEGONE) {
-						if (pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
-							if (pills[i].angle == 180.0f || pills[i].angle == 0.0f) {
+
+					if (pills[i].angle == 0.0f || pills[i].angle == 180.0f) {
+						if (pills[i].cut == LEFTSIDEGONE) {
+							if (pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
 								pills[i].f = &pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1];
 								pills[i].s = &pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1];
 
 								pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y] = -1;
 
 								pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] = (int)pills[i].right_color;
+
+								pills[i].position.y += grid_size;
+								pills[i].grid_loc.y += 1;
 							}
-							else if (pills[i].angle == 90.0f || pills[i].angle == 270.0f) {
-								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2];
-								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2];
-
-								//pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
-								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = -1;
-
-								//pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = -1;
-								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2] = (int)pills[i].right_color;
-							}
-							pills[i].position.y += grid_size;
-							pills[i].grid_loc.y += 1;
-
+							else
+								s++;
 						}
-						else
-							s++;
-					} 
-					else if (pills[i].cut == RIGHTSIDEGONE) {
-						if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
-							if (pills[i].angle == 180.0f || pills[i].angle == 0.0f) {
+						else if (pills[i].cut == RIGHTSIDEGONE) {
+							if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
 								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
 								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
 
 								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
-								//pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y] = -1;
 
 								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = (int)pills[i].left_color;
-								//pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] = -1;
+
+								pills[i].position.y += grid_size;
+								pills[i].grid_loc.y += 1;
 							}
-							else if (pills[i].angle == 90.0f || pills[i].angle == 270.0f) {
+							else
+								s++;
+						}
+						else if (pills[i].cut == UNCUT) {
+							if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
 								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
-								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+								pills[i].s = &pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1];
 
-							//	pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
-								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = -1;
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
+								pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y] = -1;
 
 								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = (int)pills[i].left_color;
-								//pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2] = -1;
-							}
-							pills[i].position.y += grid_size;
-							pills[i].grid_loc.y += 1;
+								pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] = (int)pills[i].right_color;
 
+								pills[i].position.y += grid_size;
+								pills[i].grid_loc.y += 1;
+							}
+							else
+								s++;
 						}
 						else
 							s++;
 					}
-					else if (pills[i].cut == UNCUT && (pills[i].cut == 0.0f || pills[i].cut == 180.0f)) {
-						if (pill_grid[pills[i].grid_loc.x + 1][pills[i].grid_loc.y + 1] == -1 && pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
-							
-							pills[i].position.y += grid_size;
-							pills[i].grid_loc.y += 1;
+					else if (pills[i].angle == 90.0f || pills[i].angle == 270.0f) {
+						if (pills[i].cut == LEFTSIDEGONE) {
+							if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
+								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = (int)pills[i].right_color;
+							}
+							else
+								s++;
+						}
+						else if (pills[i].cut == RIGHTSIDEGONE) {
+							if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] == -1 && pills[i].grid_loc.y < 15) {
+								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = (int)pills[i].left_color;
+							}
+							else
+								s++;
+						}
+						else if (pills[i].cut == UNCUT) {
+							if (pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2] == -1 && pills[i].grid_loc.y + 1 < 15) {
+								pills[i].f = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1];
+								pills[i].s = &pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2];
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y] = -1;
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = -1;
+
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 1] = (int)pills[i].left_color;
+								pill_grid[pills[i].grid_loc.x][pills[i].grid_loc.y + 2] = (int)pills[i].right_color;
+
+								pills[i].position.y += grid_size;
+								pills[i].grid_loc.y += 1;
+							}
+							else
+								s++;
 						}
 						else
 							s++;
@@ -403,9 +486,10 @@ public:
 					else
 						s++;
 				}
+				
+
 				if (s == pills.size() - 1) {
 					updating_all_pills_new_pos = false;
-					ConfigWithEach();
 				}
 			}
 		}
@@ -521,17 +605,23 @@ public:
 			if (virus_frame == 2)
 				virus_frame = 0;
 		}
+
 		for (auto& v : virus) {
-			if (*v.f != -1 && !v.dead) {
-				sprite_sheet_of_virus_animation.SelectSprite(v.sprite_sheet_location.x + virus_frame, v.sprite_sheet_location.y);
-				virus_animation.Draw(v.position, sprite_sheet_of_virus_animation.ReturnSourceRect());
-			}
-			if (*v.f == -1 && !v.dead) {
-				v.dead = true;
-				std::cout << "DEAD\n";
-				virus_count--;
-			}
+			if(v.f != nullptr)
+				if (*v.f != -1 && !v.dead) {
+					sprite_sheet_of_virus_animation.SelectSprite(v.sprite_sheet_location.x + virus_frame, v.sprite_sheet_location.y);
+					virus_animation.Draw(v.position, sprite_sheet_of_virus_animation.ReturnSourceRect());
+				}
+			if(v.f != nullptr)
+				if (*v.f == -1 && !v.dead) {
+					v.dead = true;
+					v.f = nullptr;
+					std::cout << "DEAD\n";
+					virus_count--;
+				}
 		}
+
+		
 
 		if(current_frame == 1)
 			mario_textures[current_frame]->Draw(Ember::Rect(mario_pos.x - (9 * SCALE), mario_pos.y, mario_textures[current_frame]->GetTextureInfo().x * SCALE, mario_textures[current_frame]->GetTextureInfo().y * SCALE));
@@ -572,7 +662,7 @@ public:
 		dr_mario_font.SetPosition(215 * SCALE, 190 * SCALE);
 		dr_mario_font.Render();
 
-		dr_mario_font.ChangeFont(score, { 0, 0, 0, 255 });
+		dr_mario_font.ChangeFont(level, { 0, 0, 0, 255 });
 		dr_mario_font.SetPosition(215 * SCALE, 145 * SCALE);
 		dr_mario_font.Render();
 
@@ -586,8 +676,41 @@ public:
 		dr_mario_font.ChangeFont(speed_text, { 0, 0, 0, 255 });
 		dr_mario_font.SetPosition(215 * SCALE, 170 * SCALE);
 		dr_mario_font.Render();
+		if (SDL_GetTicks() - yellowtimer >= pillt) {
+			yellowtimer = SDL_GetTicks();
+			if (current_yellow == 0)
+				current_yellow = 2;
+			else if (current_yellow == 2)
+				current_yellow = 0;
+		}
+		bigv_animation.SelectSprite(current_yellow, 2);
+		bigv_texture.Draw(Ember::Rect(30 * SCALE, 130 * SCALE, 38 * SCALE, 24 * SCALE), bigv_animation.ReturnSourceRect());
+
+		BlueVirusAnim({ 13, 155 });
+
+		if (SDL_GetTicks() - redtimer >= pillt) {
+			redtimer = SDL_GetTicks();
+			if (current_red == 0)
+				current_red = 2;
+			else if (current_red == 2)
+				current_red = 0;
+		}
+		bigv_animation.SelectSprite(current_red, 1);
+		bigv_texture.Draw(Ember::Rect(41 * SCALE, 155 * SCALE, 38 * SCALE, 24 * SCALE), bigv_animation.ReturnSourceRect());
 
 		virus_animation_delay++;
+	}
+
+	void BlueVirusAnim(const Ember::IVec2& pos) {
+		if (SDL_GetTicks() - bluetimer >= pillt) {
+			bluetimer = SDL_GetTicks();
+			if (current_blue == 0)
+				current_blue = 2;
+			else if (current_blue == 2)
+				current_blue = 0;
+		}
+		bigv_animation.SelectSprite(current_blue, 0);
+		bigv_texture.Draw(Ember::Rect(pos.x * SCALE, pos.y * SCALE, 38 * SCALE, 24 * SCALE), bigv_animation.ReturnSourceRect());
 	}
 
 	void Rotate() {
@@ -637,10 +760,12 @@ public:
 			if (pause) {
 				pause = false;
 				screen.SetCurrentLayer("MainGamePlay");
+				main_theme_song.Resume();
 			}
 			else if (!pause) {
 				pause = true;
 				screen.SetCurrentLayer("Pause");
+				main_theme_song.Pause();
 			}
 		}
 
@@ -657,6 +782,7 @@ private:
 	Ember::Texture background;
 	Ember::Texture bottle;
 	Ember::Font dr_mario_font;
+	Ember::Font dr_mario_title_font;
 	
 	Ember::Rect bottle_position = { window->Properties()->width / 2 - (bottle.GetTextureInfo().x * SCALE) / 2, window->Properties()->height / 2 - (bottle.GetTextureInfo().y * SCALE) / 2, 240, 528 };
 	Ember::IVec2 current_grid_spot = { 0, 0 };
@@ -675,7 +801,7 @@ private:
 
 	bool pause = false;
 	int pill_gravity = 0;
-	const int pill_gravity_timing = 200;
+	const int pill_gravity_timing = 300;
 
 	bool ready_for_next_pill = false;
 	bool left_no = false;
@@ -726,6 +852,14 @@ private:
 	Ember::Texture p_animation;
 	Ember::SpriteSheet sprite_sheet_of_pill_animation;
 
+	Ember::Texture bigv_texture;
+	Ember::SpriteSheet bigv_animation;
+
+	Ember::Texture home_background;
+
+	Ember::Texture mario_title;
+	Ember::SpriteSheet mario_title_sheet;
+
 	Ember::Texture virus_animation;
 	Ember::SpriteSheet sprite_sheet_of_virus_animation;
 	Ember::IVec2 mario_pos = { 574, 210 };
@@ -735,6 +869,20 @@ private:
 	int virus_count = 0;
 	int half_pill = 0;
 	int score = 0;
+
+	int redtimer = 0;
+	int bluetimer = 0;
+	int yellowtimer = 0;
+	int current_yellow = 0;
+	int current_blue = 0;
+	int current_red = 0;
+
+	int current_mario_ = 0;
+	int mariotimer = 0;
+
+	int pillt = 300;
+
+	Ember::AudioMusic title_sound;
 };
 
 int main(int argc, char** argv) 

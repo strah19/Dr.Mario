@@ -154,7 +154,8 @@ namespace Ember {
 	}
 
 	bool InitializeSoundLoader() {
-		Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+		if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+			return false;
 
 		return true;
 	}
@@ -424,6 +425,18 @@ namespace Ember {
 		Mix_VolumeChunk(m_chunk, m_volume);
 	}
 
+	void AudioChunk::Disable() {
+		Mix_HaltChannel(-1);
+	}
+
+	void AudioChunk::Resume() {
+		Mix_Resume(-1);
+	}
+
+	void AudioChunk::Pause() {
+		Mix_Pause(-1);
+	}
+
 	AudioChunk::~AudioChunk() {
 		Mix_FreeChunk(m_chunk);
 	}
@@ -439,6 +452,18 @@ namespace Ember {
 	void AudioMusic::Volume(unsigned int volume) {
 		m_volume = (volume < 128) ? volume : 128;
 		Mix_VolumeMusic(m_volume);
+	}
+
+	void AudioMusic::Disable() {
+		Mix_HaltMusic();
+	}
+
+	void AudioMusic::Resume() {
+		Mix_ResumeMusic();
+	}
+
+	void AudioMusic::Pause() {
+		Mix_PauseMusic();
 	}
 
 	AudioMusic::~AudioMusic() {
