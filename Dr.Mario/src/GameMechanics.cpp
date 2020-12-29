@@ -16,7 +16,6 @@ GamePlay::GamePlay(Ember::rRenderer* renderer) {
 	for (int i = 0; i < GRID_COLS; ++i)
 		grid[i] = new PillGrid[GRID_ROWS];
 	EmptyGrid();
-	PrintGrid(grid);
 }
 
 void GamePlay::CleanUp() {
@@ -267,8 +266,6 @@ void GamePlay::Update() {
 
 			CheckForInARow(grid);
 			UpdatePillFromPointer(pills.back(), num_of_dead_half, num_of_dead_pills);
-
-			PrintGrid(grid);
 
 			stop_gravity = true;
 			between_pills = true;

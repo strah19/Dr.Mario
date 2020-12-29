@@ -103,7 +103,7 @@ void GamePlayBackground::BigVirusAnimBlue(PillColor color, TextureWithSpriteShee
 	}
 
 	if (color == PillColor::BLUE) {
-		big_virus_timer[0].ChangeTrigger(75);
+		big_virus_timer[0].ChangeTrigger(50);
 		virus.spritesheet.SelectSprite(big_virus_timer[0].GetFrame() - 1, 3);
 	}
 	else {
@@ -120,7 +120,7 @@ void GamePlayBackground::BigVirusAnimYellow(PillColor color, TextureWithSpriteSh
 	}
 
 	if (color == PillColor::YELLOW) {
-		big_virus_timer[1].ChangeTrigger(75);
+		big_virus_timer[1].ChangeTrigger(50);
 		virus.spritesheet.SelectSprite(big_virus_timer[1].GetFrame() - 1, 5);
 	}
 	else {
@@ -137,7 +137,7 @@ void GamePlayBackground::BigVirusAnimRed(PillColor color, TextureWithSpriteSheet
 	}
 
 	if (color == PillColor::RED) {
-		big_virus_timer[2].ChangeTrigger(75);
+		big_virus_timer[2].ChangeTrigger(50);
 		virus.spritesheet.SelectSprite(big_virus_timer[2].GetFrame() - 1, 4);
 	}
 	else {
